@@ -10,7 +10,7 @@ type Config struct {
 }
 
 type Server struct {
-	Port    string `env:"PORT" envDefault:":8080"`
+	Port    string `env:"PORT"  envDefault:""`
 	Address string `env:"ADDRESS" envDefault:"127.0.0.1"`
 }
 

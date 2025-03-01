@@ -10,12 +10,23 @@ import (
 
 func main() {
 	cfg, err := config.LoadConfig()
-	fmt.Println(cfg)
 	if err != nil {
 		fmt.Println("Ошибка загрузки конфигурации", err)
+		return
 	}
+
+	port := cfg.Server.Port
+	if port == "" {
+		config.ParseFlags()
+		if config.FlagRunAddr != "" {
+			port = config.FlagRunAddr
+		} else {
+			port = ":8080"
+		}
+	}
+
 	e := echo.New()
 	e.POST("/", pkg.ShutUrlHandler)
 	e.GET("/:id", pkg.RedirectHandler)
-	e.Start(cfg.Server.Port)
+	e.Start(port)
 }
