@@ -26,7 +26,12 @@ func main() {
 	}
 
 	e := echo.New()
+	if config.RedirectHost != "" {
+		e.GET(config.RedirectHost+"/:id", pkg.RedirectHandler)
+	} else {
+		e.GET("/:id", pkg.RedirectHandler)
+	}
 	e.POST("/", pkg.ShutUrlHandler)
-	e.GET("/:id", pkg.RedirectHandler)
+
 	e.Start(port)
 }

@@ -18,7 +18,6 @@ const (
 var Urls = make(map[string]string)
 
 func ShutUrlHandler(c echo.Context) error {
-
 	if c.Request().Method != http.MethodPost {
 		return c.String(http.StatusMethodNotAllowed, "Only POST requests are allowed!")
 	}
@@ -57,8 +56,9 @@ func RedirectHandler(c echo.Context) error {
 	originalURL = strings.TrimSpace(originalURL)
 	originalURL = strings.Trim(originalURL, `"`)
 	if !strings.HasPrefix(originalURL, "http://") && !strings.HasPrefix(originalURL, "https://") {
-		originalURL = `http://` + originalURL
-	}
 
+		originalURL = `http://` + originalURL
+
+	}
 	return c.Redirect(http.StatusMovedPermanently, originalURL)
 }
