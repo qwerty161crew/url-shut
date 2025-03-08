@@ -63,7 +63,7 @@ func TestRedirectHandler(t *testing.T) {
 		want    want
 		method  string
 	}{}
-
+	fmt.Println(Urls)
 	for key, value := range Urls {
 		test := struct {
 			name    string
@@ -72,7 +72,7 @@ func TestRedirectHandler(t *testing.T) {
 			method  string
 		}{
 			name:    "Test send request " + value,
-			request: "http://127.0.0.1:8080/" + key,
+			request: "http://127.0.0.1:8080/" + key + "/",
 			want:    want{code: 301},
 			method:  "GET",
 		}
@@ -90,6 +90,7 @@ func TestRedirectHandler(t *testing.T) {
 			c := e.NewContext(req, rec)
 
 			err := RedirectHandler(c)
+
 			require.NoError(t, err)
 			assert.Equal(t, test.want.code, rec.Code)
 		})
