@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	pkg "url-shortener/pkg/service"
 
 	"github.com/labstack/echo"
@@ -40,12 +41,12 @@ func RedirectHandler(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "url not found")
 	}
 
-	// originalURL = strings.TrimSpace(originalURL)
-	// originalURL = strings.Trim(originalURL, `"`)
-	// if !strings.HasPrefix(originalURL, "http://") && !strings.HasPrefix(originalURL, "https://") {
+	originalURL = strings.TrimSpace(originalURL)
+	originalURL = strings.Trim(originalURL, `"`)
+	if !strings.HasPrefix(originalURL, "http://") && !strings.HasPrefix(originalURL, "https://") {
 
-	// 	originalURL = `http://` + originalURL
+		originalURL = `http://` + originalURL
 
-	// }
+	}
 	return c.Redirect(http.StatusMovedPermanently, originalURL)
 }
