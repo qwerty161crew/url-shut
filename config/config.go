@@ -10,8 +10,9 @@ type Config struct {
 }
 
 type Server struct {
-	Port    string `env:"PORT"  envDefault:""`
-	Address string `env:"ADDRESS" envDefault:"127.0.0.1"`
+	Port         string `env:"PORT"  envDefault:""`
+	BaseUrl      string `env:"BASE_URL" envDefault:"127.0.0.1"`
+	AppUrlPrefix string `env:"SERVER_ADDRESS" envDefault:"api/v1"`
 }
 
 func NewConfig() *Config {

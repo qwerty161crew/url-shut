@@ -16,7 +16,7 @@ func main() {
 	}
 
 	port := cfg.Server.Port
-	host := cfg.Server.Address
+	host := cfg.Server.BaseUrl
 	if port == "" {
 		config.ParseFlags()
 		if config.FlagRunAddr != "" {
@@ -34,7 +34,8 @@ func main() {
 			host = "http://127.0.0.1"
 		}
 	}
-	addres := host + port
+	// Правильно ?
+	addres := host + port + cfg.Server.AppUrlPrefix
 	e := echo.New()
 	if config.RedirectHost != "" {
 		e.GET(config.RedirectHost+"/:id", pkg.RedirectHandler)
