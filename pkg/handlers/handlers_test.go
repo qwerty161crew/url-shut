@@ -33,6 +33,15 @@ func TestShutUrlHandler(t *testing.T) {
 				contentType: "text/plain",
 			},
 		},
+		{
+			name:    "Test bad request",
+			request: "Invalid url",
+			want: want{
+				code:        400,
+				response:    "",
+				contentType: "text/plain",
+			},
+		},
 	}
 
 	e := echo.New()
