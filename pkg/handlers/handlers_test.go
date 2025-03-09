@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	pkg "url-shortener/pkg/service"
 
 	"github.com/labstack/echo"
 	"github.com/stretchr/testify/assert"
@@ -72,8 +74,8 @@ func TestRedirectHandler(t *testing.T) {
 		want    want
 		method  string
 	}{}
-	fmt.Println(Urls)
-	for key, value := range Urls {
+
+	for key, value := range pkg.Urls {
 		test := struct {
 			name    string
 			request string
@@ -81,22 +83,27 @@ func TestRedirectHandler(t *testing.T) {
 			method  string
 		}{
 			name:    "Test send request " + value,
-			request: "http://127.0.0.1:8080/" + key + "/",
+			request: "/" + key, // Используем только путь, а не полный URL
 			want:    want{code: 301},
 			method:  "GET",
 		}
 		tests = append(tests, test)
 	}
+
 	e := echo.New()
 	e.GET("/:id", RedirectHandler)
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			fmt.Println(Urls, test.request)
-			body := []byte(test.request)
-			req := httptest.NewRequest(http.MethodGet, test.request, bytes.NewBuffer(body))
+			fmt.Println(pkg.Urls, test.request)
+
+			req := httptest.NewRequest(http.MethodGet, test.request, nil)
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
+			c.SetPath("/:id")
+			c.SetParamNames("id")
+			c.SetParamValues(strings.TrimPrefix(test.request, "/"))
 
 			err := RedirectHandler(c)
 
