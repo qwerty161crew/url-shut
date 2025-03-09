@@ -16,6 +16,7 @@ func main() {
 	}
 
 	port := cfg.Server.Port
+	host := cfg.Server.Address
 	if port == "" {
 		config.ParseFlags()
 		if config.FlagRunAddr != "" {
@@ -24,14 +25,23 @@ func main() {
 			port = ":8080"
 		}
 	}
-
+	// правильно вас понял?
+	if host == "" {
+		config.ParseFlags()
+		if config.FlagRunAddr != "" {
+			port = config.FlagRunAddr
+		} else {
+			host = "http://127.0.0.1"
+		}
+	}
+	addres := host + port
 	e := echo.New()
 	if config.RedirectHost != "" {
 		e.GET(config.RedirectHost+"/:id", pkg.RedirectHandler)
 	} else {
 		e.GET("/:id", pkg.RedirectHandler)
 	}
-	e.POST("/", pkg.ShutUrlHandler)
 
-	e.Start(port)
+	e.POST("/", pkg.ShutUrlHandler)
+	e.Start(addres)
 }

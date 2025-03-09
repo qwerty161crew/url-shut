@@ -12,8 +12,21 @@ import (
 )
 
 func isValidURL(urlString string) bool {
-	_, err := url.ParseRequestURI(urlString)
-	return err == nil
+	u, err := url.ParseRequestURI(urlString)
+	if err != nil {
+		return false
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+	if u.Host == "" {
+		return false
+	}
+	if !strings.Contains(u.Host, ".") {
+		return false
+	}
+
+	return true
 }
 func ShutUrlHandler(c echo.Context) error {
 	if c.Request().Method != http.MethodPost {
@@ -22,16 +35,16 @@ func ShutUrlHandler(c echo.Context) error {
 
 	bodyBytes, err := io.ReadAll(c.Request().Body)
 	body := string(bodyBytes)
+	defer c.Request().Body.Close()
 	isUrl := isValidURL(body)
 	if isUrl == false {
-		c.String(http.StatusBadRequest, "Invalid url")
+		return c.String(http.StatusBadRequest, "Invalid url")
 	}
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to read request body")
 	}
 	id := pkg.SaveUrl(body)
-	defer c.Request().Body.Close()
-	link := fmt.Sprintf("http://127.0.0.1/%s", id)
+	link := fmt.Sprintf("%s://%s/%s", c.Scheme(), c.Request().Host, id)
 	return c.String(http.StatusCreated, link)
 }
 
