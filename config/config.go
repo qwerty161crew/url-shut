@@ -6,20 +6,19 @@ import (
 	"github.com/rs/zerolog"
 )
 
-
 type Config struct {
 	Server *Server `envPrefix:"SERVER_"`
 }
 type Logger struct {
-	LogLevel  string `env:"LEVEL"  envDefault:""`
+	LogLevel string `env:"LEVEL"  envDefault:""`
 }
 
 type Server struct {
-	Mode                                      string        `env:"MODE"      envDefault:"local"`
-	LogFile                                   string        `env:"LOG_FILE"   envDefault:"output.log"`
+	Mode         string `env:"MODE"      envDefault:"local"`
+	LogFile      string `env:"LOG_FILE"   envDefault:"output.log"`
 	Port         string `env:"PORT"  envDefault:""`
 	BaseUrl      string `env:"BASE_URL" envDefault:"127.0.0.1"`
-	AppUrlPrefix string `env:"SERVER_ADDRESS" envDefault:"api/v1"`
+	AppUrlPrefix string `env:"SERVER_ADDRESS" envDefault:"/api/v1"`
 }
 
 func NewConfig() *Config {

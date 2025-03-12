@@ -1,9 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"url-shortener/config"
-	"url-shortener/internal/handlers"
-	internal "url-shortener/internal/handlers"
+	handlers "url-shortener/internal/handlers"
 	"url-shortener/pkg/logger"
 
 	"github.com/labstack/echo"
@@ -38,12 +38,13 @@ func main() {
 			host = "http://127.0.0.1"
 		}
 	}
-	addres := host + port + cfg.Server.AppUrlPrefix
+	addres := host + port
+	fmt.Println(addres)
 	e := echo.New()
 	if config.RedirectHost != "" {
-		e.GET(config.RedirectHost+"/:id", internal.RedirectHandler)
+		e.GET(cfg.Server.AppUrlPrefix+config.RedirectHost+"/:id", handlers.RedirectHandler)
 	} else {
-		e.GET("/:id", handlers.RedirectHandler)
+		e.GET(cfg.Server.AppUrlPrefix+"/:id", handlers.RedirectHandler)
 	}
 
 	e.POST("/", handlers.ShutUrlHandler)
