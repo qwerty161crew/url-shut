@@ -1,4 +1,4 @@
-package pkg
+package handlers
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	pkg "url-shortener/pkg/service"
+	service "url-shortener/internal/service"
 
 	"github.com/labstack/echo"
 )
@@ -43,13 +43,13 @@ func ShutUrlHandler(c echo.Context) error {
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to read request body")
 	}
-	id := pkg.SaveUrl(body)
+	id := service.SaveUrl(body)
 	link := fmt.Sprintf("%s://%s/%s", c.Scheme(), c.Request().Host, id)
 	return c.String(http.StatusCreated, link)
 }
 
 func RedirectHandler(c echo.Context) error {
-	originalURL, exists := pkg.Urls[c.Param("id")]
+	originalURL, exists := service.Urls[c.Param("id")]
 	if !exists {
 		return echo.NewHTTPError(http.StatusNotFound, "url not found")
 	}

@@ -1,4 +1,4 @@
-package pkg
+package handlers_test
 
 import (
 	"bytes"
@@ -7,7 +7,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	pkg "url-shortener/pkg/service"
+	"url-shortener/internal/handlers"
+	"url-shortener/internal/service"
 
 	"github.com/labstack/echo"
 	"github.com/stretchr/testify/assert"
@@ -47,7 +48,7 @@ func TestShutUrlHandler(t *testing.T) {
 	}
 
 	e := echo.New()
-	e.POST("/", ShutUrlHandler)
+	e.POST("/", handlers.ShutUrlHandler)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			body := []byte(test.request)
@@ -56,7 +57,7 @@ func TestShutUrlHandler(t *testing.T) {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			err := ShutUrlHandler(c)
+			err := handlers.ShutUrlHandler(c)
 			require.NoError(t, err)
 			assert.Equal(t, test.want.code, rec.Code)
 		})
@@ -75,7 +76,7 @@ func TestRedirectHandler(t *testing.T) {
 		method  string
 	}{}
 
-	for key, value := range pkg.Urls {
+	for key, value := range service.Urls {
 		test := struct {
 			name    string
 			request string
@@ -91,11 +92,11 @@ func TestRedirectHandler(t *testing.T) {
 	}
 
 	e := echo.New()
-	e.GET("/:id", RedirectHandler)
+	e.GET("/:id", handlers.RedirectHandler)
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			fmt.Println(pkg.Urls, test.request)
+			fmt.Println(service.Urls, test.request)
 
 			req := httptest.NewRequest(http.MethodGet, test.request, nil)
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -105,7 +106,7 @@ func TestRedirectHandler(t *testing.T) {
 			c.SetParamNames("id")
 			c.SetParamValues(strings.TrimPrefix(test.request, "/"))
 
-			err := RedirectHandler(c)
+			err := handlers.RedirectHandler(c)
 
 			require.NoError(t, err)
 			assert.Equal(t, test.want.code, rec.Code)
