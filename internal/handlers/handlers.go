@@ -13,16 +13,11 @@ import (
 
 func isValidURL(urlString string) bool {
 	u, err := url.ParseRequestURI(urlString)
+	fmt.Println(u, err)
 	if err != nil {
 		return false
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
-		return false
-	}
-	if u.Host == "" {
-		return false
-	}
-	if !strings.Contains(u.Host, ".") {
 		return false
 	}
 
