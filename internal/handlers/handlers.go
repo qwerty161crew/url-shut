@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+	"url-shortener/internal/models"
 	service "url-shortener/internal/service"
 
 	"github.com/labstack/echo"
@@ -22,6 +24,23 @@ func isValidURL(urlString string) bool {
 	}
 
 	return true
+}
+func ShutUrlJsonHandler(c echo.Context) error {
+	if c.Request().Method != http.MethodPost {
+		return c.String(http.StatusMethodNotAllowed, "Only POST requests are allowed!")
+	}
+	var request models.RequestCreateUrl
+	bodyBytes, _ := io.ReadAll(c.Request().Body)
+	err := json.Unmarshal(bodyBytes, &request)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Bad request")
+	}
+	id := service.SaveUrl(request.Url)
+	link := fmt.Sprintf("%s://%s/%s", c.Scheme(), c.Request().Host, id)
+	fmt.Println(link)
+	response := models.ResponseCreateUrl{Result: link}
+	return c.JSON(http.StatusCreated, response)
+
 }
 func ShutUrlHandler(c echo.Context) error {
 	if c.Request().Method != http.MethodPost {

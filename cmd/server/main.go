@@ -47,5 +47,6 @@ func main() {
 	}
 	e.Use(middleware.LoggerMiddleware)
 	e.POST("/", handlers.ShutUrlHandler)
+	e.POST("/api/shorten", handlers.ShutUrlJsonHandler)
 	e.Start(addres)
 }
