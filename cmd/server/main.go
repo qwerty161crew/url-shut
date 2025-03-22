@@ -3,10 +3,11 @@ package main
 import (
 	"url-shortener/config"
 	handlers "url-shortener/internal/handlers"
-	middleware "url-shortener/internal/middlewars"
+	md "url-shortener/internal/middlewars"
 	"url-shortener/pkg/logger"
 
 	"github.com/labstack/echo"
+	echoMiddleware "github.com/labstack/echo/middleware"
 	"github.com/rs/zerolog/log"
 )
 
@@ -45,7 +46,8 @@ func main() {
 	} else {
 		e.GET(cfg.Server.AppUrlPrefix+"/:id", handlers.RedirectHandler)
 	}
-	e.Use(middleware.LoggerMiddleware)
+	e.Use(md.LoggerMiddleware)
+	e.Use(echoMiddleware.Gzip())
 	e.POST("/", handlers.ShutUrlHandler)
 	e.POST("/api/shorten", handlers.ShutUrlJsonHandler)
 	e.Start(addres)

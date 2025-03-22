@@ -2,12 +2,14 @@ package handlers_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"url-shortener/internal/handlers"
+	"url-shortener/internal/models"
 	"url-shortener/internal/service"
 
 	"github.com/labstack/echo"
@@ -112,4 +114,24 @@ func TestRedirectHandler(t *testing.T) {
 			assert.Equal(t, test.want.code, rec.Code)
 		})
 	}
+}
+
+func TestShutUrlJsonHandler(t *testing.T) {
+	e := echo.New()
+	t.Run("Valid POST request", func(t *testing.T) {
+		requestBody := models.RequestCreateUrl{Url: "https://example.com"}
+		jsonBody, _ := json.Marshal(requestBody)
+		req := httptest.NewRequest(http.MethodPost, "/api/shorten", bytes.NewBuffer(jsonBody))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		if assert.NoError(t, handlers.ShutUrlJsonHandler(c)) {
+			assert.Equal(t, http.StatusCreated, rec.Code)
+
+			var response models.ResponseCreateUrl
+			err := json.Unmarshal(rec.Body.Bytes(), &response)
+			assert.NoError(t, err)
+			assert.Contains(t, response.Result, "http://")
+		}
+	})
 }

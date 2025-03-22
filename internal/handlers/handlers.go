@@ -37,7 +37,6 @@ func ShutUrlJsonHandler(c echo.Context) error {
 	}
 	id := service.SaveUrl(request.Url)
 	link := fmt.Sprintf("%s://%s/%s", c.Scheme(), c.Request().Host, id)
-	fmt.Println(link)
 	response := models.ResponseCreateUrl{Result: link}
 	return c.JSON(http.StatusCreated, response)
 
