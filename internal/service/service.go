@@ -1,8 +1,14 @@
 package service
 
 import (
+	"bufio"
+	"encoding/json"
+	"fmt"
+	"log"
 	"math/rand"
+	"os"
 	"strings"
+	"url-shortener/pkg/logger"
 )
 
 const (
@@ -12,7 +18,29 @@ const (
 
 var Urls = make(map[string]string)
 
-// generateRandomString генерирует случайную строку заданной длины.
+var File string
+
+type Url struct {
+	Id    string `json:"uuid"`
+	UrlId string `json:"short_url"`
+	Url   string `json:"original_url"`
+}
+type URLData struct {
+	UUID        string `json:"uuid"`
+	ShortURL    string `json:"short_url"`
+	OriginalURL string `json:"original_url"`
+}
+
+func GenerateUUID() string {
+	b := make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		log.Fatal(err)
+	}
+	uuid := fmt.Sprintf("%x-%x-%x-%x-%x",
+		b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+	return uuid
+}
 func generateRandomString(n int) string {
 	sb := strings.Builder{}
 	sb.Grow(n)
@@ -25,9 +53,57 @@ func generateRandomString(n int) string {
 	return sb.String()
 }
 
-// SaveUrl сохраняет URL и возвращает сгенерированный идентификатор.
 func SaveUrl(url string) string {
 	id := generateRandomString(length)
 	Urls[id] = url
+	saveUrlInFile(id, url)
 	return id
+}
+
+func saveUrlInFile(id string, url string) error {
+	file, err := os.OpenFile(File, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+
+	if err != nil {
+		logger.Warn("Error open file", err)
+		return err
+	}
+	defer file.Close()
+	uuid_id := GenerateUUID()
+	var urlstruct Url = Url{Id: uuid_id, UrlId: id, Url: url}
+	data, err_serializer := json.Marshal(urlstruct)
+	if err_serializer != nil {
+		logger.Warn("Error serialize data", err_serializer)
+		return err
+	}
+	data = append(data, '\n')
+	_, err = file.Write(data)
+	if err != nil {
+		logger.Warn("Error writing to file:", err)
+		return err
+	}
+	return nil
+}
+
+func LoadData() error {
+	file, err := os.OpenFile(File, os.O_RDONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		var urlData URLData
+		if err := json.Unmarshal(line, &urlData); err != nil {
+			return err
+		}
+		Urls[urlData.ShortURL] = urlData.OriginalURL
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	fmt.Println(Urls)
+	return nil
 }

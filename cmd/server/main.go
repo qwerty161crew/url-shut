@@ -4,6 +4,7 @@ import (
 	"url-shortener/config"
 	handlers "url-shortener/internal/handlers"
 	md "url-shortener/internal/middlewars"
+	"url-shortener/internal/service"
 	"url-shortener/pkg/logger"
 
 	"github.com/labstack/echo"
@@ -11,8 +12,18 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// var File string
+
 func main() {
+	file := &service.File
 	cfg, err := config.LoadConfig()
+	if cfg.Server.File != "url.txt" {
+		if config.FileUrl != "" {
+			*file = config.FileUrl
+		}
+	} else {
+		*file = cfg.Server.File
+	}
 	if err != nil {
 		log.Error().Msg("failed to load config")
 		return
@@ -20,6 +31,10 @@ func main() {
 	if err := logger.Setup(cfg.Server); err != nil {
 		log.Error().Msg("failed to load config")
 		return
+	}
+	err_load := service.LoadData()
+	if err_load != nil {
+		log.Error().Msg("failed to load data")
 	}
 	port := cfg.Server.Port
 	host := cfg.Server.BaseUrl
