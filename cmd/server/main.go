@@ -47,7 +47,6 @@ func main() {
 		}
 	}
 	if host == "" {
-		config.ParseFlags()
 		if config.FlagRunAddr != "" {
 			port = config.FlagRunAddr
 		} else {
