@@ -13,17 +13,16 @@ import (
 )
 
 // var File string
+func GetFileStoragePath(cfg *config.Config) string {
+	if config.FileUrl != "" {
+		return config.FileUrl
+	}
+	return cfg.Server.File
+}
 
 func main() {
-	file := &service.File
 	cfg, err := config.LoadConfig()
-	if cfg.Server.File != "url.txt" {
-		if config.FileUrl != "" {
-			*file = config.FileUrl
-		}
-	} else {
-		*file = cfg.Server.File
-	}
+	service.File = GetFileStoragePath(cfg)
 	if err != nil {
 		log.Error().Msg("failed to load config")
 		return
