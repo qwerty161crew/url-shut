@@ -64,7 +64,7 @@ func saveUrlInFile(id string, url string) error {
 	file, err := os.OpenFile(File, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 
 	if err != nil {
-		logger.Warn("Error open file", err)
+		logger.Warn("Error open file", err, "file path", File)
 		return err
 	}
 	defer file.Close()
