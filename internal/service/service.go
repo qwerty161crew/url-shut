@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"strings"
+	"sync"
 	"url-shortener/pkg/logger"
 )
 
@@ -31,6 +32,21 @@ type URLData struct {
 	OriginalURL string `json:"original_url"`
 }
 
+type SafeMap struct {
+	mu   sync.Mutex
+	urls *map[string]string
+}
+
+func NewSafeMap() *SafeMap {
+	return &SafeMap{
+		urls: &Urls,
+	}
+}
+func (sm *SafeMap) Set(key, value string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	(*sm.urls)[key] = value
+}
 func GenerateUUID() string {
 	b := make([]byte, 16)
 	_, err := rand.Read(b)
@@ -55,7 +71,8 @@ func generateRandomString(n int) string {
 
 func SaveUrl(url string) string {
 	id := generateRandomString(length)
-	Urls[id] = url
+	urlStruct := NewSafeMap()
+	urlStruct.Set(id, url)
 	saveUrlInFile(id, url)
 	return id
 }
