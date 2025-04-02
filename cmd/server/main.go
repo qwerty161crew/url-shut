@@ -1,6 +1,9 @@
 package main
 
 import (
+	"database/sql"
+	"fmt"
+	"net/http"
 	"url-shortener/config"
 	handlers "url-shortener/internal/handlers"
 	md "url-shortener/internal/middlewars"
@@ -9,6 +12,7 @@ import (
 
 	"github.com/labstack/echo"
 	echoMiddleware "github.com/labstack/echo/middleware"
+	_ "github.com/lib/pq"
 	"github.com/rs/zerolog/log"
 )
 
@@ -63,5 +67,21 @@ func main() {
 	e.Use(echoMiddleware.Gzip())
 	e.POST("/", handlers.ShutUrlHandler)
 	e.POST("/api/shorten", handlers.ShutUrlJsonHandler)
+	e.GET("/ping", func(ctx echo.Context) error {
+		connStr := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
+			cfg.Postgres.Host, cfg.Postgres.User, cfg.Postgres.Password, cfg.Postgres.Db)
+		db, err := sql.Open("postgres", connStr)
+		if err != nil {
+			logger.Error("connect db error", err)
+			return ctx.String(http.StatusInternalServerError, "connect db error")
+		}
+		if err := db.Ping(); err != nil {
+			logger.Error("connect db error", err)
+			return ctx.String(http.StatusInternalServerError, "connect db error")
+		}
+
+		defer db.Close()
+		return ctx.String(http.StatusOK, "Success")
+	})
 	e.Start(addres)
 }

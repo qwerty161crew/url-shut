@@ -7,10 +7,18 @@ import (
 )
 
 type Config struct {
-	Server *Server `envPrefix:"SERVER_"`
+	Server   *Server   `envPrefix:"SERVER_"`
+	Postgres *Postgres `envPrefix:"POSTGRES_"`
 }
 type Logger struct {
 	LogLevel string `env:"LEVEL"  envDefault:""`
+}
+type Postgres struct {
+	Host     string `env:"HOST"  envDefault:"127.0.0.1"`
+	Port     string `env:"PORT"  envDefault:"5432"`
+	User     string `env:"USER"  envDefault:"postgres"`
+	Password string `env:"PASSWORD"  envDefault:"1917"`
+	Db       string `env:"PASSWORD"  envDefault:"url"`
 }
 
 type Server struct {
@@ -24,7 +32,8 @@ type Server struct {
 
 func NewConfig() *Config {
 	return &Config{
-		Server: &Server{},
+		Server:   &Server{},
+		Postgres: &Postgres{},
 	}
 }
 
