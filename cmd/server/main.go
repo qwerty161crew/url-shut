@@ -1,20 +1,40 @@
 package main
 
 import (
-	"fmt"
 	"url-shortener/config"
-	pkg "url-shortener/pkg/handlers"
+	handlers "url-shortener/internal/handlers"
+	md "url-shortener/internal/middlewars"
+	"url-shortener/internal/service"
+	"url-shortener/pkg/logger"
 
 	"github.com/labstack/echo"
+	echoMiddleware "github.com/labstack/echo/middleware"
+	"github.com/rs/zerolog/log"
 )
+
+// var File string
+func GetFileStoragePath(cfg *config.Config) string {
+	if config.FileUrl != "" {
+		return config.FileUrl
+	}
+	return cfg.Server.File
+}
 
 func main() {
 	cfg, err := config.LoadConfig()
+	service.File = GetFileStoragePath(cfg)
 	if err != nil {
-		fmt.Println("Ошибка загрузки конфигурации", err)
+		log.Error().Msg("failed to load config")
 		return
 	}
-
+	if err := logger.Setup(cfg.Server); err != nil {
+		log.Error().Msg("failed to load config")
+		return
+	}
+	err_load := service.LoadData()
+	if err_load != nil {
+		log.Error().Msg("failed to load data")
+	}
 	port := cfg.Server.Port
 	host := cfg.Server.BaseUrl
 	if port == "" {
@@ -25,24 +45,23 @@ func main() {
 			port = ":8080"
 		}
 	}
-	// правильно вас понял?
 	if host == "" {
-		config.ParseFlags()
 		if config.FlagRunAddr != "" {
 			port = config.FlagRunAddr
 		} else {
 			host = "http://127.0.0.1"
 		}
 	}
-	// Правильно ?
-	addres := host + port + cfg.Server.AppUrlPrefix
+	addres := host + port
 	e := echo.New()
 	if config.RedirectHost != "" {
-		e.GET(config.RedirectHost+"/:id", pkg.RedirectHandler)
+		e.GET(cfg.Server.AppUrlPrefix+config.RedirectHost+"/:id", handlers.RedirectHandler)
 	} else {
-		e.GET("/:id", pkg.RedirectHandler)
+		e.GET(cfg.Server.AppUrlPrefix+"/:id", handlers.RedirectHandler)
 	}
-
-	e.POST("/", pkg.ShutUrlHandler)
+	e.Use(md.LoggerMiddleware)
+	e.Use(echoMiddleware.Gzip())
+	e.POST("/", handlers.ShutUrlHandler)
+	e.POST("/api/shorten", handlers.ShutUrlJsonHandler)
 	e.Start(addres)
 }
