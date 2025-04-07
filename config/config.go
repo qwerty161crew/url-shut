@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+
 	"github.com/caarlos0/env/v11"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -54,4 +56,14 @@ func (s *Server) Level() zerolog.Level {
 
 func (s *Server) OutputFile() string {
 	return s.LogFile
+}
+
+func (pg *Postgres) GenerateDBurl() string {
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		pg.User,
+		pg.Password,
+		pg.Host,
+		pg.Port,
+		pg.Db,
+	)
 }

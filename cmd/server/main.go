@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"url-shortener/config"
-	handlers "url-shortener/internal/handlers"
+	"url-shortener/db"
+	"url-shortener/internal/handlers"
 	md "url-shortener/internal/middlewars"
 	"url-shortener/internal/service"
 	"url-shortener/pkg/logger"
@@ -26,6 +27,7 @@ func GetFileStoragePath(cfg *config.Config) string {
 
 func main() {
 	cfg, err := config.LoadConfig()
+	db.MigrateModels(cfg.Postgres.GenerateDBurl())
 	service.File = GetFileStoragePath(cfg)
 	if err != nil {
 		log.Error().Msg("failed to load config")
@@ -58,15 +60,16 @@ func main() {
 	}
 	addres := host + port
 	e := echo.New()
+	urlHandler := handlers.NewURLHandler(cfg)
 	if config.RedirectHost != "" {
-		e.GET(cfg.Server.AppUrlPrefix+config.RedirectHost+"/:id", handlers.RedirectHandler)
+		e.GET(cfg.Server.AppUrlPrefix+config.RedirectHost+"/:id", urlHandler.RedirectHandler)
 	} else {
-		e.GET(cfg.Server.AppUrlPrefix+"/:id", handlers.RedirectHandler)
+		e.GET(cfg.Server.AppUrlPrefix+"/:id", urlHandler.RedirectHandler)
 	}
 	e.Use(md.LoggerMiddleware)
 	e.Use(echoMiddleware.Gzip())
-	e.POST("/", handlers.ShutUrlHandler)
-	e.POST("/api/shorten", handlers.ShutUrlJsonHandler)
+	e.POST("/", urlHandler.ShutUrlHandler)
+	e.POST("/api/shorten", urlHandler.ShutUrlJsonHandler)
 	e.GET("/ping", func(ctx echo.Context) error {
 		connStr := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
 			cfg.Postgres.Host, cfg.Postgres.User, cfg.Postgres.Password, cfg.Postgres.Db)

@@ -7,11 +7,21 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"url-shortener/config"
 	"url-shortener/internal/models"
-	service "url-shortener/internal/service"
+	"url-shortener/internal/service"
 
 	"github.com/labstack/echo"
+	"gorm.io/gorm"
 )
+
+type UrlHandlers struct {
+	db gorm.DB
+}
+
+func NewUrlHandlers(db gorm.DB) UrlHandlers {
+	return UrlHandlers{db: db}
+}
 
 func isValidURL(urlString string) bool {
 	u, err := url.ParseRequestURI(urlString)
@@ -25,54 +35,63 @@ func isValidURL(urlString string) bool {
 
 	return true
 }
-func ShutUrlJsonHandler(c echo.Context) error {
+
+type URLHandler struct {
+	config *config.Config
+}
+
+func NewURLHandler(cfg *config.Config) *URLHandler {
+	return &URLHandler{
+		config: cfg,
+	}
+}
+
+func (h *URLHandler) ShutUrlJsonHandler(c echo.Context) error {
 	if c.Request().Method != http.MethodPost {
 		return c.String(http.StatusMethodNotAllowed, "Only POST requests are allowed!")
 	}
+
 	var request models.RequestCreateUrl
 	bodyBytes, _ := io.ReadAll(c.Request().Body)
 	err := json.Unmarshal(bodyBytes, &request)
 	if err != nil {
 		return c.String(http.StatusBadRequest, "Bad request")
 	}
-	id := service.SaveUrl(request.Url)
+
+	id := service.SaveUrlInDb(request.Url, h.config)
 	link := fmt.Sprintf("%s://%s/%s", c.Scheme(), c.Request().Host, id)
 	response := models.ResponseCreateUrl{Result: link}
 	return c.JSON(http.StatusCreated, response)
-
 }
-func ShutUrlHandler(c echo.Context) error {
+
+func (h *URLHandler) ShutUrlHandler(c echo.Context) error {
 	if c.Request().Method != http.MethodPost {
 		return c.String(http.StatusMethodNotAllowed, "Only POST requests are allowed!")
 	}
 
 	bodyBytes, err := io.ReadAll(c.Request().Body)
-	body := string(bodyBytes)
-	defer c.Request().Body.Close()
-	isUrl := isValidURL(body)
-	if isUrl == false {
-		return c.String(http.StatusBadRequest, "Invalid url")
-	}
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to read request body")
 	}
-	id := service.SaveUrl(body)
+	defer c.Request().Body.Close()
+
+	body := string(bodyBytes)
+	if !isValidURL(body) {
+		return c.String(http.StatusBadRequest, "Invalid url")
+	}
+
+	id := service.SaveUrlInDb(body, h.config)
 	link := fmt.Sprintf("%s://%s/%s", c.Scheme(), c.Request().Host, id)
 	return c.String(http.StatusCreated, link)
 }
 
-func RedirectHandler(c echo.Context) error {
-	originalURL, exists := service.Urls[c.Param("id")]
-	if !exists {
-		return echo.NewHTTPError(http.StatusNotFound, "url not found")
-	}
-
+func (h *URLHandler) RedirectHandler(c echo.Context) error {
+	originalURL := service.GetUrlInDb(c.Param("id"), h.config)
 	originalURL = strings.TrimSpace(originalURL)
 	originalURL = strings.Trim(originalURL, `"`)
 	if !strings.HasPrefix(originalURL, "http://") && !strings.HasPrefix(originalURL, "https://") {
-
 		originalURL = `http://` + originalURL
-
 	}
+
 	return c.Redirect(http.StatusMovedPermanently, originalURL)
 }

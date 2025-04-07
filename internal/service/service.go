@@ -9,17 +9,18 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"url-shortener/config"
+	"url-shortener/internal/models"
 	"url-shortener/pkg/logger"
+
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 const (
 	letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	length      = 8
 )
-
-var Urls = make(map[string]string)
-
-var File string
 
 type Url struct {
 	Id    string `json:"uuid"`
@@ -31,6 +32,10 @@ type URLData struct {
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
 }
+
+var Urls = make(map[string]string)
+
+var File string
 
 type SafeMap struct {
 	mu   sync.Mutex
@@ -46,6 +51,13 @@ func (sm *SafeMap) Set(key, value string) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	(*sm.urls)[key] = value
+}
+
+func GetUrlInDb(id string, cfg *config.Config) string {
+	db, _ := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
+	urlModel := &models.URL{}
+	url, _ := urlModel.GetByID(db, id)
+	return url.Url
 }
 func GenerateUUID() string {
 	b := make([]byte, 16)
@@ -69,11 +81,16 @@ func generateRandomString(n int) string {
 	return sb.String()
 }
 
-func SaveUrl(url string) string {
+func SaveUrlInDb(url string, cfg *config.Config) string {
+	db, _ := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
 	id := generateRandomString(length)
-	urlStruct := NewSafeMap()
-	urlStruct.Set(id, url)
-	saveUrlInFile(id, url)
+	newURL := &models.URL{
+		SlugUrl: id,
+		Url:     url,
+	}
+	if err := newURL.Create(db, newURL); err != nil {
+		return fmt.Sprintf("Error creating URL: %v\n", err)
+	}
 	return id
 }
 
