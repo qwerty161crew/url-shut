@@ -55,8 +55,8 @@ func (sm *SafeMap) Set(key, value string) {
 
 func GetUrlInDb(id string, cfg *config.Config) string {
 	db, _ := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
-	urlModel := &models.URL{}
-	url, _ := urlModel.GetByID(db, id)
+	urlRepo := models.NewURLRepository(db)
+	url, _ := urlRepo.GetBySlug(id)
 	return url.Url
 }
 func GenerateUUID() string {
@@ -69,11 +69,11 @@ func GenerateUUID() string {
 		b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
 	return uuid
 }
-func generateRandomString(n int) string {
+func generateRandomString() string {
 	sb := strings.Builder{}
-	sb.Grow(n)
+	sb.Grow(8)
 
-	for i := 0; i < n; i++ {
+	for i := 0; i < 8; i++ {
 		randomIndex := rand.Intn(len(letterBytes))
 		sb.WriteByte(letterBytes[randomIndex])
 	}
@@ -83,18 +83,19 @@ func generateRandomString(n int) string {
 
 func SaveUrlInDb(url string, cfg *config.Config) string {
 	db, _ := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
-	id := generateRandomString(length)
+	urlRepo := models.NewURLRepository(db)
+	id := generateRandomString()
 	newURL := &models.URL{
 		SlugUrl: id,
 		Url:     url,
 	}
-	if err := newURL.Create(db, newURL); err != nil {
+	if err := urlRepo.Create(newURL); err != nil {
 		return fmt.Sprintf("Error creating URL: %v\n", err)
 	}
 	return id
 }
 
-func saveUrlInFile(id string, url string) error {
+func SaveUrlInFile(id string, url string) error {
 	file, err := os.OpenFile(File, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 
 	if err != nil {
@@ -139,5 +140,22 @@ func LoadData() error {
 		return err
 	}
 	fmt.Println(Urls)
+	return nil
+}
+
+func SaveBatchURLS(urls []models.CreateURLSRequest, cfg *config.Config) error {
+	gormUrls := make([]models.URL, 0, len(urls))
+	for _, url := range urls {
+		gormUrls = append(gormUrls, models.URL{
+			SlugUrl: url.CorrelationID,
+			Url:     url.OriginalURL,
+		})
+	}
+	db, _ := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
+	urlRepo := models.NewURLRepository(db)
+	err := urlRepo.BatchCreate(gormUrls)
+	if err != nil {
+		return err
+	}
 	return nil
 }

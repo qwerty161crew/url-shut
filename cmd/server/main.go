@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"url-shortener/config"
-	"url-shortener/db"
 	"url-shortener/internal/handlers"
 	md "url-shortener/internal/middlewars"
 	"url-shortener/internal/service"
@@ -27,7 +26,6 @@ func GetFileStoragePath(cfg *config.Config) string {
 
 func main() {
 	cfg, err := config.LoadConfig()
-	db.MigrateModels(cfg.Postgres.GenerateDBurl())
 	service.File = GetFileStoragePath(cfg)
 	if err != nil {
 		log.Error().Msg("failed to load config")

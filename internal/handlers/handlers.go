@@ -55,7 +55,7 @@ func (h *URLHandler) ShutUrlJsonHandler(c echo.Context) error {
 	bodyBytes, _ := io.ReadAll(c.Request().Body)
 	err := json.Unmarshal(bodyBytes, &request)
 	if err != nil {
-		return c.String(http.StatusBadRequest, "Bad request")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
 	}
 
 	id := service.SaveUrlInDb(request.Url, h.config)
@@ -94,4 +94,19 @@ func (h *URLHandler) RedirectHandler(c echo.Context) error {
 	}
 
 	return c.Redirect(http.StatusMovedPermanently, originalURL)
+}
+
+func (h *URLHandler) BatchURLHandler(c echo.Context) error {
+	var requests []models.CreateURLSRequest
+	if err := c.Bind(&requests); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
+	}
+	if err := c.Validate(requests); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
+	}
+	err := service.SaveBatchURLS(requests, h.config)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
 }
