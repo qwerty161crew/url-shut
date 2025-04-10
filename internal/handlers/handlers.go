@@ -97,16 +97,19 @@ func (h *URLHandler) RedirectHandler(c echo.Context) error {
 }
 
 func (h *URLHandler) BatchURLHandler(c echo.Context) error {
+	// var typereq models.CreateURLSRequest
 	var requests []models.CreateURLSRequest
 	if err := c.Bind(&requests); err != nil {
+		fmt.Println("24432432")
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
 	}
-	if err := c.Validate(requests); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
-	}
-	err := service.SaveBatchURLS(requests, h.config)
+	// if err := c.Validate(typereq); err != nil {
+	// 	fmt.Println("555")
+	// 	return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
+	// }
+	response, err := service.SaveBatchURLS(requests, h.config)
 	if err != nil {
-		return err
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
 	}
-	return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
+	return c.JSON(http.StatusBadRequest, response)
 }

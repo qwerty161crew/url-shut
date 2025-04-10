@@ -26,7 +26,7 @@ type Postgres struct {
 type Server struct {
 	Mode         string `env:"MODE"      envDefault:"local"`
 	LogFile      string `env:"LOG_FILE"   envDefault:"output.log"`
-	Port         string `env:"PORT"  envDefault:""`
+	Port         string `env:"PORT"  envDefault:"8080"`
 	BaseUrl      string `env:"BASE_URL" envDefault:"127.0.0.1"`
 	AppUrlPrefix string `env:"SERVER_ADDRESS" envDefault:"/api/v1"`
 	File         string `env:"URL_FILE" envDefault:"url.txt"`

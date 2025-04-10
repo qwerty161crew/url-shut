@@ -143,8 +143,9 @@ func LoadData() error {
 	return nil
 }
 
-func SaveBatchURLS(urls []models.CreateURLSRequest, cfg *config.Config) error {
+func SaveBatchURLS(urls []models.CreateURLSRequest, cfg *config.Config) ([]models.CreateURLSResponse, error) {
 	gormUrls := make([]models.URL, 0, len(urls))
+	var responses []models.CreateURLSResponse
 	for _, url := range urls {
 		gormUrls = append(gormUrls, models.URL{
 			SlugUrl: url.CorrelationID,
@@ -155,7 +156,15 @@ func SaveBatchURLS(urls []models.CreateURLSRequest, cfg *config.Config) error {
 	urlRepo := models.NewURLRepository(db)
 	err := urlRepo.BatchCreate(gormUrls)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+
+	for _, req := range urls {
+		response := models.CreateURLSResponse{
+			CorrelationID: req.CorrelationID,
+			OriginalURL:   fmt.Sprintf("http://%s/%s:%s", cfg.Server.BaseUrl, cfg.Server.Port, req.CorrelationID),
+		}
+		responses = append(responses, response)
+	}
+	return responses, nil
 }

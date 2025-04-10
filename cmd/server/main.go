@@ -68,6 +68,7 @@ func main() {
 	e.Use(echoMiddleware.Gzip())
 	e.POST("/", urlHandler.ShutUrlHandler)
 	e.POST("/api/shorten", urlHandler.ShutUrlJsonHandler)
+	e.POST("/api/shorten/batch", urlHandler.BatchURLHandler)
 	e.GET("/ping", func(ctx echo.Context) error {
 		connStr := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
 			cfg.Postgres.Host, cfg.Postgres.User, cfg.Postgres.Password, cfg.Postgres.Db)
