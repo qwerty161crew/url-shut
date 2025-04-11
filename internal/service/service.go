@@ -3,6 +3,7 @@ package service
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math/rand"
@@ -81,18 +82,28 @@ func generateRandomString() string {
 	return sb.String()
 }
 
-func SaveUrlInDb(url string, cfg *config.Config) string {
-	db, _ := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
+func SaveUrlInDb(url string, cfg *config.Config) (string, error) {
+	db, err := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
+	if err != nil {
+		return "", err
+	}
+
 	urlRepo := models.NewURLRepository(db)
 	id := generateRandomString()
 	newURL := &models.URL{
 		SlugUrl: id,
 		Url:     url,
 	}
-	if err := urlRepo.Create(newURL); err != nil {
-		return fmt.Sprintf("Error creating URL: %v\n", err)
+
+	createdURL, err := urlRepo.CreateOrGet(newURL)
+	if err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return createdURL.SlugUrl, err
+		}
+		return "", err
 	}
-	return id
+
+	return createdURL.SlugUrl, nil
 }
 
 func SaveUrlInFile(id string, url string) error {

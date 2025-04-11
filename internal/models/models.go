@@ -3,6 +3,8 @@ package models
 import (
 	"errors"
 
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 )
 
@@ -32,10 +34,36 @@ type URLRepository interface {
 	GetBySlug(slug string) (URL, error)
 	Create(url *URL) error
 	BatchCreate(urls []URL) error
+	CreateOrGet(url *URL) (*URL, error)
 }
 
 type urlRepository struct {
 	db *gorm.DB
+}
+
+func (r *urlRepository) CreateOrGet(url *URL) (*URL, error) {
+	if url == nil {
+		return nil, errors.New("URL cannot be nil")
+	}
+
+	// Пытаемся вставить новую запись
+	result := r.db.Create(url)
+	if result.Error == nil {
+		return url, nil // Успешная вставка
+	}
+
+	// Проверяем, является ли ошибка нарушением уникальности
+	var pgErr *pgconn.PgError
+	if errors.As(result.Error, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+		// Если URL уже существует, находим существующую запись
+		var existingURL URL
+		if err := r.db.Where("url = ?", url.Url).First(&existingURL).Error; err != nil {
+			return nil, err
+		}
+		return &existingURL, gorm.ErrDuplicatedKey
+	}
+
+	return nil, result.Error
 }
 
 type URL struct {

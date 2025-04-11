@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -45,25 +45,28 @@ func NewURLHandler(cfg *config.Config) *URLHandler {
 		config: cfg,
 	}
 }
-
 func (h *URLHandler) ShutUrlJsonHandler(c echo.Context) error {
 	if c.Request().Method != http.MethodPost {
 		return c.String(http.StatusMethodNotAllowed, "Only POST requests are allowed!")
 	}
 
 	var request models.RequestCreateUrl
-	bodyBytes, _ := io.ReadAll(c.Request().Body)
-	err := json.Unmarshal(bodyBytes, &request)
-	if err != nil {
+	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
 	}
 
-	id := service.SaveUrlInDb(request.Url, h.config)
-	link := fmt.Sprintf("%s://%s/%s", c.Scheme(), c.Request().Host, id)
-	response := models.ResponseCreateUrl{Result: link}
-	return c.JSON(http.StatusCreated, response)
-}
+	id, err := service.SaveUrlInDb(request.Url, h.config)
+	if err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			link := fmt.Sprintf("%s://%s/%s", c.Scheme(), c.Request().Host, id)
+			return c.JSON(http.StatusConflict, models.ResponseCreateUrl{Result: link})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+	}
 
+	link := fmt.Sprintf("%s://%s/%s", c.Scheme(), c.Request().Host, id)
+	return c.JSON(http.StatusCreated, models.ResponseCreateUrl{Result: link})
+}
 func (h *URLHandler) ShutUrlHandler(c echo.Context) error {
 	if c.Request().Method != http.MethodPost {
 		return c.String(http.StatusMethodNotAllowed, "Only POST requests are allowed!")
@@ -80,7 +83,8 @@ func (h *URLHandler) ShutUrlHandler(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid url")
 	}
 
-	id := service.SaveUrlInDb(body, h.config)
+	id, _ := service.SaveUrlInDb(body, h.config)
+
 	link := fmt.Sprintf("%s://%s/%s", c.Scheme(), c.Request().Host, id)
 	return c.String(http.StatusCreated, link)
 }
