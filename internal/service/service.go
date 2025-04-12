@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"url-shortener/config"
+	"url-shortener/db"
 	"url-shortener/internal/models"
 	"url-shortener/pkg/logger"
 
@@ -55,8 +56,8 @@ func (sm *SafeMap) Set(key, value string) {
 }
 
 func GetUrlInDb(id string, cfg *config.Config) string {
-	db, _ := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
-	urlRepo := models.NewURLRepository(db)
+	database, _ := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
+	urlRepo := db.NewURLRepository(database)
 	url, _ := urlRepo.GetBySlug(id)
 	return url.Url
 }
@@ -83,14 +84,14 @@ func generateRandomString() string {
 }
 
 func SaveUrlInDb(url string, cfg *config.Config) (string, error) {
-	db, err := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
+	dbConnect, err := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
 	if err != nil {
 		return "", err
 	}
 
-	urlRepo := models.NewURLRepository(db)
+	urlRepo := db.NewURLRepository(dbConnect)
 	id := generateRandomString()
-	newURL := &models.URL{
+	newURL := &db.URL{
 		SlugUrl: id,
 		Url:     url,
 	}
@@ -155,16 +156,16 @@ func LoadData() error {
 }
 
 func SaveBatchURLS(urls []models.CreateURLSRequest, cfg *config.Config) ([]models.CreateURLSResponse, error) {
-	gormUrls := make([]models.URL, 0, len(urls))
+	gormUrls := make([]db.URL, 0, len(urls))
 	var responses []models.CreateURLSResponse
 	for _, url := range urls {
-		gormUrls = append(gormUrls, models.URL{
+		gormUrls = append(gormUrls, db.URL{
 			SlugUrl: url.CorrelationID,
 			Url:     url.OriginalURL,
 		})
 	}
-	db, _ := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
-	urlRepo := models.NewURLRepository(db)
+	dbConnect, _ := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
+	urlRepo := db.NewURLRepository(dbConnect)
 	err := urlRepo.BatchCreate(gormUrls)
 	if err != nil {
 		return nil, err
