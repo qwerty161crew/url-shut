@@ -2,11 +2,28 @@ package db
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
+
+func GetModels() []interface{} {
+	return []interface{}{User{}, URL{}}
+}
+
+type User struct {
+	Username string `gorm:"type:CHAR(16);unique;not null"`
+	Password string `gorm:"not null"`
+}
+
+type UserRepository interface {
+	CheckUser(username string) bool
+	CreateUser(user User) *User
+	AuthUser(username string, password string) *User
+}
 
 type URL struct {
 	gorm.Model
@@ -77,4 +94,22 @@ func (r *urlRepository) BatchCreate(urls []URL) error {
 		return nil // Нет данных для вставки
 	}
 	return r.db.Create(&urls).Error
+}
+func AutoMigrateModels(dbUrl string) error {
+	models := GetModels()
+	db, err := gorm.Open(postgres.Open(dbUrl), &gorm.Config{})
+	if err != nil {
+		return fmt.Errorf("database connection is nil")
+	}
+	for _, model := range models {
+		if model == nil {
+			return fmt.Errorf("one of the models is nil")
+		}
+	}
+	err = db.AutoMigrate(models...)
+	if err != nil {
+		return fmt.Errorf("failed to auto migrate models: %v", err)
+	}
+
+	return nil
 }

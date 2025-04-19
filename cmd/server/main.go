@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"url-shortener/config"
+	"url-shortener/db"
 	"url-shortener/internal/handlers"
 	md "url-shortener/internal/middlewars"
 	"url-shortener/internal/service"
@@ -30,6 +31,10 @@ func main() {
 	if err != nil {
 		log.Error().Msg("failed to load config")
 		return
+	}
+
+	if err := db.AutoMigrateModels(cfg.Postgres.GenerateDBurl()); err != nil {
+		log.Error().Msg(err.Error())
 	}
 	if err := logger.Setup(cfg.Server); err != nil {
 		log.Error().Msg("failed to load config")
