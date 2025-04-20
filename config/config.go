@@ -11,6 +11,10 @@ import (
 type Config struct {
 	Server   *Server   `envPrefix:"SERVER_"`
 	Postgres *Postgres `envPrefix:"POSTGRES_"`
+	Security *Security `envPrefix:"SECURITY_"`
+}
+type Security struct {
+	Salt string `env:"SALT"  envDefault:"123e4567-e89b-"`
 }
 type Logger struct {
 	LogLevel string `env:"LEVEL"  envDefault:""`
@@ -36,6 +40,7 @@ func NewConfig() *Config {
 	return &Config{
 		Server:   &Server{},
 		Postgres: &Postgres{},
+		Security: &Security{},
 	}
 }
 

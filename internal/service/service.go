@@ -10,11 +10,14 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 	"url-shortener/config"
 	"url-shortener/db"
 	"url-shortener/internal/models"
 	"url-shortener/pkg/logger"
 
+	"github.com/golang-jwt/jwt"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -42,6 +45,33 @@ var File string
 type SafeMap struct {
 	mu   sync.Mutex
 	urls *map[string]string
+}
+
+func CreateUser(user models.RegistrationRequest, cfg *config.Config) (string, error) {
+	dbConnect, err := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
+	if err != nil {
+		return "", fmt.Errorf("ошибка при подключении базы данных: %w", err)
+	}
+
+	passwordAndsalt := user.Password + cfg.Security.Salt
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(passwordAndsalt), bcrypt.DefaultCost)
+	if err != nil {
+
+		return "", fmt.Errorf("ошибка при хешировании пароля: %w", err)
+	}
+
+	userRepository := db.NewUserRepository(dbConnect)
+	userModel, err := userRepository.CreateUser(user.Username, string(hashedPassword))
+	fmt.Println(userModel)
+	if err != nil {
+		return "", err
+	}
+	token := jwt.New(jwt.SigningMethodHS256)
+	claims := token.Claims.(jwt.MapClaims)
+	claims["user_id"] = userModel.ID
+	claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
+	tokenString, _ := token.SignedString([]byte(cfg.Security.Salt))
+	return tokenString, nil
 }
 
 func NewSafeMap() *SafeMap {

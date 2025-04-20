@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 	"url-shortener/config"
+	"url-shortener/db"
 	"url-shortener/internal/models"
 	"url-shortener/internal/service"
 
@@ -104,7 +106,6 @@ func (h *URLHandler) BatchURLHandler(c echo.Context) error {
 	// var typereq models.CreateURLSRequest
 	var requests []models.CreateURLSRequest
 	if err := c.Bind(&requests); err != nil {
-		fmt.Println("24432432")
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
 	}
 	// if err := c.Validate(typereq); err != nil {
@@ -116,4 +117,29 @@ func (h *URLHandler) BatchURLHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
 	}
 	return c.JSON(http.StatusBadRequest, response)
+}
+func (h *URLHandler) RegistrationHandler(c echo.Context) error {
+	var request models.RegistrationRequest
+	if err := c.Bind(&request); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
+	}
+	fmt.Println(request)
+	token, err := service.CreateUser(request, h.config)
+	if err != nil {
+		if errors.Is(err, db.ErrUsernameExists) {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "username already exists"})
+		} else {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		}
+	}
+	cookie := new(http.Cookie)
+	cookie.Name = "auth_token"
+	cookie.Value = token
+	cookie.Expires = time.Now().Add(24 * time.Hour)
+	cookie.HttpOnly = true
+	cookie.Secure = true
+	cookie.Path = "/"
+
+	c.SetCookie(cookie)
+	return c.JSON(http.StatusOK, map[string]string{"message": "registration was successful"})
 }

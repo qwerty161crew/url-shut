@@ -21,3 +21,7 @@ type RequestCreateUrl struct {
 type ResponseCreateUrl struct {
 	Result string `json:"result"`
 }
+type RegistrationRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}

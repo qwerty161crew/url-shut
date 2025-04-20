@@ -14,15 +14,40 @@ func GetModels() []interface{} {
 	return []interface{}{User{}, URL{}}
 }
 
+var ErrUsernameExists = errors.New("username already exists")
+
 type User struct {
+	gorm.Model
 	Username string `gorm:"type:CHAR(16);unique;not null"`
 	Password string `gorm:"not null"`
 }
 
 type UserRepository interface {
-	CheckUser(username string) bool
-	CreateUser(user User) *User
-	AuthUser(username string, password string) *User
+	CreateUser(username string, password string) (User, error)
+}
+type userRepositoryStruct struct {
+	db *gorm.DB
+}
+
+func (r *userRepositoryStruct) CreateUser(username string, password string) (User, error) {
+	var existingUser User
+	result := r.db.Where("username = ?", username).First(&existingUser)
+
+	if result.Error == nil {
+		return User{}, ErrUsernameExists
+	} else if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return User{}, result.Error
+	}
+
+	user := User{
+		Username: username,
+		Password: password,
+	}
+	if err := r.db.Create(&user).Error; err != nil {
+		return User{}, err
+	}
+
+	return user, nil
 }
 
 type URL struct {
@@ -65,7 +90,9 @@ func (r *urlRepository) CreateOrGet(url *URL) (*URL, error) {
 
 	return nil, result.Error
 }
-
+func NewUserRepository(db *gorm.DB) *userRepositoryStruct {
+	return &userRepositoryStruct{db: db}
+}
 func NewURLRepository(db *gorm.DB) URLRepository {
 	return &urlRepository{db: db}
 }
@@ -91,7 +118,7 @@ func (r *urlRepository) Create(url *URL) error {
 
 func (r *urlRepository) BatchCreate(urls []URL) error {
 	if len(urls) == 0 {
-		return nil // Нет данных для вставки
+		return nil
 	}
 	return r.db.Create(&urls).Error
 }
