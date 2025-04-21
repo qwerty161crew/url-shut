@@ -53,11 +53,15 @@ func (h *URLHandler) ShutUrlJsonHandler(c echo.Context) error {
 	}
 
 	var request models.RequestCreateUrl
+	userID, ok := c.Get("userID").(uint)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "user ID not found in context"})
+	}
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
 	}
 
-	id, err := service.SaveUrlInDb(request.Url, h.config)
+	id, err := service.SaveUrlInDb(request.Url, h.config, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			link := fmt.Sprintf("%s://%s/%s", c.Scheme(), c.Request().Host, id)
@@ -73,7 +77,7 @@ func (h *URLHandler) ShutUrlHandler(c echo.Context) error {
 	if c.Request().Method != http.MethodPost {
 		return c.String(http.StatusMethodNotAllowed, "Only POST requests are allowed!")
 	}
-
+	userID, _ := c.Get("userID").(uint)
 	bodyBytes, err := io.ReadAll(c.Request().Body)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to read request body")
@@ -85,9 +89,10 @@ func (h *URLHandler) ShutUrlHandler(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid url")
 	}
 
-	id, _ := service.SaveUrlInDb(body, h.config)
+	id, _ := service.SaveUrlInDb(body, h.config, userID)
 
 	link := fmt.Sprintf("%s://%s/%s", c.Scheme(), c.Request().Host, id)
+	// GET /api/user/urls
 	return c.String(http.StatusCreated, link)
 }
 
@@ -142,4 +147,13 @@ func (h *URLHandler) RegistrationHandler(c echo.Context) error {
 
 	c.SetCookie(cookie)
 	return c.JSON(http.StatusOK, map[string]string{"message": "registration was successful"})
+}
+
+func (h *URLHandler) GetUserUrls(c echo.Context) error {
+	userID, ok := c.Get("userID").(uint)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "user ID not found in context"})
+	}
+	urls := service.GetUrlsInDb(userID, h.cfg)
+	return c.JSON(http.StatusOK, urls)
 }

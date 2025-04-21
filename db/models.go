@@ -18,10 +18,17 @@ var ErrUsernameExists = errors.New("username already exists")
 
 type User struct {
 	gorm.Model
+	ID       uint   `gorm:"primarykey"`
 	Username string `gorm:"type:CHAR(16);unique;not null"`
 	Password string `gorm:"not null"`
 }
-
+type URL struct {
+	gorm.Model
+	SlugUrl string `gorm:"type:CHAR(8);unique;not null"`
+	Url     string `gorm:"type:TEXT;not null"`
+	UserID  uint
+	User    User `gorm:"foreignKey:ID"`
+}
 type UserRepository interface {
 	CreateUser(username string, password string) (User, error)
 }
@@ -50,20 +57,29 @@ func (r *userRepositoryStruct) CreateUser(username string, password string) (Use
 	return user, nil
 }
 
-type URL struct {
-	gorm.Model
-	SlugUrl string `gorm:"type:CHAR(8);unique;not null"`
-	Url     string `gorm:"type:TEXT;not null"`
-}
 type URLRepository interface {
 	GetBySlug(slug string) (URL, error)
 	Create(url *URL) error
 	BatchCreate(urls []URL) error
 	CreateOrGet(url *URL) (*URL, error)
+	GetListUrls(userId uint) ([]*URL, error)
 }
 
 type urlRepository struct {
 	db *gorm.DB
+}
+
+func (r *urlRepository) GetListUrls(userId uint) ([]*URL, error) {
+	var urls []*URL
+	err := r.db.Where("user_id = ?", userId).Find(&urls).Error
+	if err != nil {
+		return nil, err
+	}
+	if len(urls) == 0 {
+		return []*URL{}, nil
+	}
+
+	return urls, nil
 }
 
 func (r *urlRepository) CreateOrGet(url *URL) (*URL, error) {
@@ -76,8 +92,6 @@ func (r *urlRepository) CreateOrGet(url *URL) (*URL, error) {
 	if result.Error == nil {
 		return url, nil // Успешная вставка
 	}
-
-	// Проверяем, является ли ошибка нарушением уникальности
 	var pgErr *pgconn.PgError
 	if errors.As(result.Error, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 		// Если URL уже существует, находим существующую запись

@@ -85,6 +85,21 @@ func (sm *SafeMap) Set(key, value string) {
 	(*sm.urls)[key] = value
 }
 
+func GetUrlsInDb(userID uint, cfg *config.Config) []models.ListURLSResponse {
+	var responses []models.ListURLSResponse
+	database, _ := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
+	urlRepo := db.NewURLRepository(database)
+	urls, _ := urlRepo.GetListUrls(userID)
+	for _, url := range urls {
+		response := models.ListURLSResponse{
+			ShortUrl:    fmt.Sprintf("http://%s/%s:%s", cfg.Server.BaseUrl, cfg.Server.Port, url.SlugUrl),
+			OriginalUrl: url.Url,
+		}
+		responses = append(responses, response)
+	}
+	return responses
+}
+
 func GetUrlInDb(id string, cfg *config.Config) string {
 	database, _ := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
 	urlRepo := db.NewURLRepository(database)
@@ -113,7 +128,7 @@ func generateRandomString() string {
 	return sb.String()
 }
 
-func SaveUrlInDb(url string, cfg *config.Config) (string, error) {
+func SaveUrlInDb(url string, cfg *config.Config, userId uint) (string, error) {
 	dbConnect, err := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
 	if err != nil {
 		return "", err
@@ -124,6 +139,7 @@ func SaveUrlInDb(url string, cfg *config.Config) (string, error) {
 	newURL := &db.URL{
 		SlugUrl: id,
 		Url:     url,
+		UserID:  userId,
 	}
 
 	createdURL, err := urlRepo.CreateOrGet(newURL)

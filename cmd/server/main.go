@@ -71,6 +71,7 @@ func main() {
 	}
 	e.Use(md.LoggerMiddleware)
 	e.Use(echoMiddleware.Gzip())
+	e.Use(md.JWTMiddleware(cfg))
 	e.POST("/", urlHandler.ShutUrlHandler)
 	e.POST("/api/shorten", urlHandler.ShutUrlJsonHandler)
 	e.POST("/api/shorten/batch", urlHandler.BatchURLHandler)
