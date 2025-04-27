@@ -40,13 +40,13 @@ func isValidURL(urlString string) bool {
 
 type URLHandler struct {
 	config *config.Config
-	db *gorm.DB
+	service *service.UrlService
 }
 
-func NewURLHandler(cfg *config.Config, dbConnect *gorm.DB) *URLHandler {
+func NewURLHandler(cfg *config.Config,  urlService *service.UrlService) *URLHandler {
 	return &URLHandler{
 		config: cfg,
-		db: dbConnect,
+		service: urlService,
 	}
 }
 func (h *URLHandler) ShutUrlJsonHandler(c echo.Context) error {
@@ -63,7 +63,7 @@ func (h *URLHandler) ShutUrlJsonHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
 	}
 
-	id, err := service.SaveUrlInDb(request.Url, h.config, userID, h.db)
+	id, err := h.service.SaveUrlInDb(request.Url, h.config, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			link := fmt.Sprintf("%s://%s/%s", c.Scheme(), c.Request().Host, id)
@@ -91,7 +91,7 @@ func (h *URLHandler) ShutUrlHandler(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid url")
 	}
 
-	id, _ := service.SaveUrlInDb(body, h.config, userID, h.db)
+	id, _ := h.service.SaveUrlInDb(body, h.config, userID)
 
 	link := fmt.Sprintf("%s://%s/%s", c.Scheme(), c.Request().Host, id)
 	// GET /api/user/urls
@@ -99,7 +99,7 @@ func (h *URLHandler) ShutUrlHandler(c echo.Context) error {
 }
 
 func (h *URLHandler) RedirectHandler(c echo.Context) error {
-	originalURL := service.GetUrlInDb(c.Param("id"), h.config,  h.db)
+	originalURL := h.service.GetUrlInDb(c.Param("id"), h.config)
 	originalURL = strings.TrimSpace(originalURL)
 	originalURL = strings.Trim(originalURL, `"`)
 	if !strings.HasPrefix(originalURL, "http://") && !strings.HasPrefix(originalURL, "https://") {
@@ -114,7 +114,7 @@ func (h *URLHandler) BatchURLHandler(c echo.Context) error {
 	if err := c.Bind(&requests); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
 	}
-	response, err := service.SaveBatchURLS(requests, h.config,  h.db)
+	response, err := h.service.SaveBatchURLS(requests, h.config)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
 	}
@@ -126,7 +126,7 @@ func (h *URLHandler) RegistrationHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
 	}
 	fmt.Println(request)
-	token, err := service.CreateUser(request, h.config,  h.db)
+	token, err := h.service.CreateUser(request, h.config)
 	if err != nil {
 		if errors.Is(err, db.ErrUsernameExists) {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "username already exists"})
@@ -151,6 +151,6 @@ func (h *URLHandler) GetUserUrls(c echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "user ID not found in context"})
 	}
-	urls := service.GetUrlsInDb(userID, h.config,  h.db)
+	urls := h.service.GetUrlsInDb(userID, h.config)
 	return c.JSON(http.StatusOK, urls)
 }

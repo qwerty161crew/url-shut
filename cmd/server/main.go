@@ -30,8 +30,8 @@ func GetFileStoragePath(cfg *config.Config) string {
 
 func main() {
 	cfg, err := config.LoadConfig()
-	service.File = GetFileStoragePath(cfg)
 	dbConnect, err := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
+	urlService := service.GetUrlService(*dbConnect)
 	if err != nil {
 		log.Error().Msg("failed to open connect db")
 		return 
@@ -47,10 +47,6 @@ func main() {
 	if err := logger.Setup(cfg.Server); err != nil {
 		log.Error().Msg("failed to load config")
 		return
-	}
-	err_load := service.LoadData()
-	if err_load != nil {
-		log.Error().Msg("failed to load data")
 	}
 	port := cfg.Server.Port
 	host := cfg.Server.BaseUrl
@@ -71,7 +67,7 @@ func main() {
 	}
 	addres := host + port
 	e := echo.New()
-	urlHandler := handlers.NewURLHandler(cfg, dbConnect)
+	urlHandler := handlers.NewURLHandler(cfg,  urlService)
 	if config.RedirectHost != "" {
 		e.GET(cfg.Server.AppUrlPrefix+config.RedirectHost+"/:id", urlHandler.RedirectHandler)
 	} else {

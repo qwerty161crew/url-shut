@@ -1,21 +1,16 @@
 package service
 
 import (
-	"bufio"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"math/rand"
-	"os"
 	"strings"
-	"sync"
 	"time"
 	"url-shortener/config"
 	"url-shortener/db"
 	"url-shortener/internal/models"
 	"url-shortener/internal/repository.go"
-	"url-shortener/pkg/logger"
 
 	"github.com/golang-jwt/jwt"
 	"golang.org/x/crypto/bcrypt"
@@ -38,17 +33,16 @@ type URLData struct {
 	OriginalURL string `json:"original_url"`
 }
 
-var Urls = make(map[string]string)
-
-var File string
-
-type SafeMap struct {
-	mu   sync.Mutex
-	urls *map[string]string
+type UrlService struct {
+	db  *gorm.DB
 }
 
-func CreateUser(user models.RegistrationRequest, cfg *config.Config, dbConnect *gorm.DB) (string, error) {
-
+func GetUrlService(db gorm.DB) *UrlService {
+	return &UrlService{
+		db: &db,
+	}
+}
+func (s *UrlService) CreateUser(user models.RegistrationRequest, cfg *config.Config) (string, error) {
 	passwordAndsalt := user.Password + cfg.Security.Salt
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(passwordAndsalt), bcrypt.DefaultCost)
 	if err != nil {
@@ -56,7 +50,7 @@ func CreateUser(user models.RegistrationRequest, cfg *config.Config, dbConnect *
 		return "", fmt.Errorf("ошибка при хешировании пароля: %w", err)
 	}
 
-	userRepository := repository.NewUserRepository(dbConnect)
+	userRepository := repository.NewUserRepository(s.db)
 	userModel, err := userRepository.CreateUser(user.Username, string(hashedPassword))
 	fmt.Println(userModel)
 	if err != nil {
@@ -70,20 +64,9 @@ func CreateUser(user models.RegistrationRequest, cfg *config.Config, dbConnect *
 	return tokenString, nil
 }
 
-func NewSafeMap() *SafeMap {
-	return &SafeMap{
-		urls: &Urls,
-	}
-}
-func (sm *SafeMap) Set(key, value string) {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-	(*sm.urls)[key] = value
-}
-
-func GetUrlsInDb(userID uint, cfg *config.Config, dbConnect *gorm.DB) []models.ListURLSResponse {
+func (s *UrlService) GetUrlsInDb(userID uint, cfg *config.Config) []models.ListURLSResponse {
 	var responses []models.ListURLSResponse
-	urlRepo := repository.NewURLRepository(dbConnect)
+	urlRepo := repository.NewURLRepository(s.db)
 	urls, _ := urlRepo.GetListUrls(userID)
 	for _, url := range urls {
 		response := models.ListURLSResponse{
@@ -95,8 +78,8 @@ func GetUrlsInDb(userID uint, cfg *config.Config, dbConnect *gorm.DB) []models.L
 	return responses
 }
 
-func GetUrlInDb(id string, cfg *config.Config, dbConnect *gorm.DB) string {
-	urlRepo := repository.NewURLRepository(dbConnect)
+func (s *UrlService) GetUrlInDb(id string, cfg *config.Config) string {
+	urlRepo := repository.NewURLRepository(s.db)
 	url, _ := urlRepo.GetBySlug(id)
 	return url.Url
 }
@@ -122,9 +105,9 @@ func generateRandomString() string {
 	return sb.String()
 }
 
-func SaveUrlInDb(url string, cfg *config.Config, userId uint, dbConnect *gorm.DB) (string, error) {
+func (s *UrlService) SaveUrlInDb(url string, cfg *config.Config, userId uint) (string, error) {
 
-	urlRepo := repository.NewURLRepository(dbConnect)
+	urlRepo := repository.NewURLRepository(s.db)
 	id := generateRandomString()
 	newURL := &db.URL{
 		Slug: id,
@@ -143,55 +126,8 @@ func SaveUrlInDb(url string, cfg *config.Config, userId uint, dbConnect *gorm.DB
 	return createdURL.Slug, nil
 }
 
-func SaveUrlInFile(id string, url string) error {
-	file, err := os.OpenFile(File, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 
-	if err != nil {
-		logger.Warn("Error open file", err, "file path", File)
-		return err
-	}
-	defer file.Close()
-	uuid_id := GenerateUUID()
-	var urlstruct Url = Url{Id: uuid_id, UrlId: id, Url: url}
-	data, err_serializer := json.Marshal(urlstruct)
-	if err_serializer != nil {
-		logger.Warn("Error serialize data", err_serializer)
-		return err
-	}
-	data = append(data, '\n')
-	_, err = file.Write(data)
-	if err != nil {
-		logger.Warn("Error writing to file:", err)
-		return err
-	}
-	return nil
-}
-
-func LoadData() error {
-	file, err := os.OpenFile(File, os.O_RDONLY|os.O_CREATE, 0666)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		var urlData URLData
-		if err := json.Unmarshal(line, &urlData); err != nil {
-			return err
-		}
-		Urls[urlData.ShortURL] = urlData.OriginalURL
-	}
-
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-	fmt.Println(Urls)
-	return nil
-}
-
-func SaveBatchURLS(urls []models.CreateURLSRequest, cfg *config.Config, dbConnect *gorm.DB) ([]models.CreateURLSResponse, error) {
+func (s *UrlService) SaveBatchURLS(urls []models.CreateURLSRequest, cfg *config.Config) ([]models.CreateURLSResponse, error) {
 	gormUrls := make([]db.URL, 0, len(urls))
 	var responses []models.CreateURLSResponse
 	for _, url := range urls {
@@ -200,7 +136,7 @@ func SaveBatchURLS(urls []models.CreateURLSRequest, cfg *config.Config, dbConnec
 			Url:     url.OriginalURL,
 		})
 	}
-	urlRepo := repository.NewURLRepository(dbConnect)
+	urlRepo := repository.NewURLRepository(s.db)
 	err := urlRepo.BatchCreate(gormUrls)
 	if err != nil {
 		return nil, err
