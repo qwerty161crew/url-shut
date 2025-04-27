@@ -14,11 +14,11 @@ import (
 	"url-shortener/config"
 	"url-shortener/db"
 	"url-shortener/internal/models"
+	"url-shortener/internal/repository.go"
 	"url-shortener/pkg/logger"
 
 	"github.com/golang-jwt/jwt"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -47,11 +47,7 @@ type SafeMap struct {
 	urls *map[string]string
 }
 
-func CreateUser(user models.RegistrationRequest, cfg *config.Config) (string, error) {
-	dbConnect, err := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
-	if err != nil {
-		return "", fmt.Errorf("ошибка при подключении базы данных: %w", err)
-	}
+func CreateUser(user models.RegistrationRequest, cfg *config.Config, dbConnect *gorm.DB) (string, error) {
 
 	passwordAndsalt := user.Password + cfg.Security.Salt
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(passwordAndsalt), bcrypt.DefaultCost)
@@ -60,7 +56,7 @@ func CreateUser(user models.RegistrationRequest, cfg *config.Config) (string, er
 		return "", fmt.Errorf("ошибка при хешировании пароля: %w", err)
 	}
 
-	userRepository := db.NewUserRepository(dbConnect)
+	userRepository := repository.NewUserRepository(dbConnect)
 	userModel, err := userRepository.CreateUser(user.Username, string(hashedPassword))
 	fmt.Println(userModel)
 	if err != nil {
@@ -85,14 +81,13 @@ func (sm *SafeMap) Set(key, value string) {
 	(*sm.urls)[key] = value
 }
 
-func GetUrlsInDb(userID uint, cfg *config.Config) []models.ListURLSResponse {
+func GetUrlsInDb(userID uint, cfg *config.Config, dbConnect *gorm.DB) []models.ListURLSResponse {
 	var responses []models.ListURLSResponse
-	database, _ := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
-	urlRepo := db.NewURLRepository(database)
+	urlRepo := repository.NewURLRepository(dbConnect)
 	urls, _ := urlRepo.GetListUrls(userID)
 	for _, url := range urls {
 		response := models.ListURLSResponse{
-			ShortUrl:    fmt.Sprintf("http://%s/%s:%s", cfg.Server.BaseUrl, cfg.Server.Port, url.SlugUrl),
+			ShortUrl:    fmt.Sprintf("http://%s/%s:%s", cfg.Server.BaseUrl, cfg.Server.Port, url.Slug),
 			OriginalUrl: url.Url,
 		}
 		responses = append(responses, response)
@@ -100,9 +95,8 @@ func GetUrlsInDb(userID uint, cfg *config.Config) []models.ListURLSResponse {
 	return responses
 }
 
-func GetUrlInDb(id string, cfg *config.Config) string {
-	database, _ := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
-	urlRepo := db.NewURLRepository(database)
+func GetUrlInDb(id string, cfg *config.Config, dbConnect *gorm.DB) string {
+	urlRepo := repository.NewURLRepository(dbConnect)
 	url, _ := urlRepo.GetBySlug(id)
 	return url.Url
 }
@@ -128,29 +122,25 @@ func generateRandomString() string {
 	return sb.String()
 }
 
-func SaveUrlInDb(url string, cfg *config.Config, userId uint) (string, error) {
-	dbConnect, err := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
-	if err != nil {
-		return "", err
-	}
+func SaveUrlInDb(url string, cfg *config.Config, userId uint, dbConnect *gorm.DB) (string, error) {
 
-	urlRepo := db.NewURLRepository(dbConnect)
+	urlRepo := repository.NewURLRepository(dbConnect)
 	id := generateRandomString()
 	newURL := &db.URL{
-		SlugUrl: id,
+		Slug: id,
 		Url:     url,
 		UserID:  userId,
 	}
 
-	createdURL, err := urlRepo.CreateOrGet(newURL)
+	createdURL, err := urlRepo.CreateIfNotExists(newURL)
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return createdURL.SlugUrl, err
+			return createdURL.Slug, err
 		}
 		return "", err
 	}
 
-	return createdURL.SlugUrl, nil
+	return createdURL.Slug, nil
 }
 
 func SaveUrlInFile(id string, url string) error {
@@ -201,17 +191,16 @@ func LoadData() error {
 	return nil
 }
 
-func SaveBatchURLS(urls []models.CreateURLSRequest, cfg *config.Config) ([]models.CreateURLSResponse, error) {
+func SaveBatchURLS(urls []models.CreateURLSRequest, cfg *config.Config, dbConnect *gorm.DB) ([]models.CreateURLSResponse, error) {
 	gormUrls := make([]db.URL, 0, len(urls))
 	var responses []models.CreateURLSResponse
 	for _, url := range urls {
 		gormUrls = append(gormUrls, db.URL{
-			SlugUrl: url.CorrelationID,
+			Slug: url.CorrelationID,
 			Url:     url.OriginalURL,
 		})
 	}
-	dbConnect, _ := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
-	urlRepo := db.NewURLRepository(dbConnect)
+	urlRepo := repository.NewURLRepository(dbConnect)
 	err := urlRepo.BatchCreate(gormUrls)
 	if err != nil {
 		return nil, err

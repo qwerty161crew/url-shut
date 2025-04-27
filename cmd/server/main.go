@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"net/http"
 	"url-shortener/config"
-	"url-shortener/db"
 	"url-shortener/internal/handlers"
 	md "url-shortener/internal/middlewars"
+	"url-shortener/internal/repository.go"
 	"url-shortener/internal/service"
 	"url-shortener/pkg/logger"
+
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 
 	"github.com/labstack/echo"
 	echoMiddleware "github.com/labstack/echo/middleware"
@@ -28,12 +31,17 @@ func GetFileStoragePath(cfg *config.Config) string {
 func main() {
 	cfg, err := config.LoadConfig()
 	service.File = GetFileStoragePath(cfg)
+	dbConnect, err := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
+	if err != nil {
+		log.Error().Msg("failed to open connect db")
+		return 
+	}
 	if err != nil {
 		log.Error().Msg("failed to load config")
 		return
 	}
 
-	if err := db.AutoMigrateModels(cfg.Postgres.GenerateDBurl()); err != nil {
+	if err := repository.AutoMigrateModels(cfg.Postgres.GenerateDBurl()); err != nil {
 		log.Error().Msg(err.Error())
 	}
 	if err := logger.Setup(cfg.Server); err != nil {
@@ -63,7 +71,7 @@ func main() {
 	}
 	addres := host + port
 	e := echo.New()
-	urlHandler := handlers.NewURLHandler(cfg)
+	urlHandler := handlers.NewURLHandler(cfg, dbConnect)
 	if config.RedirectHost != "" {
 		e.GET(cfg.Server.AppUrlPrefix+config.RedirectHost+"/:id", urlHandler.RedirectHandler)
 	} else {
