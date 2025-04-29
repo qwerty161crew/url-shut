@@ -33,16 +33,18 @@ type URLData struct {
 	OriginalURL string `json:"original_url"`
 }
 
-type UrlService struct {
-	db  *gorm.DB
+type URLs struct {
+	userRepository repository.UserRepository
+	urlRepository repository.URLRepository
 }
 
-func GetUrlService(db gorm.DB) *UrlService {
-	return &UrlService{
-		db: &db,
+func GetUrlService(userRepository repository.UserRepository, urlRepository repository.URLRepository) *URLs {
+	return &URLs{
+		userRepository: userRepository,
+		urlRepository: urlRepository,
 	}
 }
-func (s *UrlService) CreateUser(user models.RegistrationRequest, cfg *config.Config) (string, error) {
+func (s *URLs) CreateUser(user models.RegistrationRequest, cfg *config.Config) (string, error) {
 	passwordAndsalt := user.Password + cfg.Security.Salt
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(passwordAndsalt), bcrypt.DefaultCost)
 	if err != nil {
@@ -50,8 +52,7 @@ func (s *UrlService) CreateUser(user models.RegistrationRequest, cfg *config.Con
 		return "", fmt.Errorf("ошибка при хешировании пароля: %w", err)
 	}
 
-	userRepository := repository.NewUserRepository(s.db)
-	userModel, err := userRepository.CreateUser(user.Username, string(hashedPassword))
+	userModel, err := s.userRepository.CreateUser(user.Username, string(hashedPassword))
 	fmt.Println(userModel)
 	if err != nil {
 		return "", err
@@ -64,10 +65,9 @@ func (s *UrlService) CreateUser(user models.RegistrationRequest, cfg *config.Con
 	return tokenString, nil
 }
 
-func (s *UrlService) GetUrlsInDb(userID uint, cfg *config.Config) []models.ListURLSResponse {
+func (s *URLs) GetUrlsInDb(userID uint, cfg *config.Config) []models.ListURLSResponse {
 	var responses []models.ListURLSResponse
-	urlRepo := repository.NewURLRepository(s.db)
-	urls, _ := urlRepo.GetListUrls(userID)
+	urls, _ := s.urlRepository.GetListUrls(userID)
 	for _, url := range urls {
 		response := models.ListURLSResponse{
 			ShortUrl:    fmt.Sprintf("http://%s/%s:%s", cfg.Server.BaseUrl, cfg.Server.Port, url.Slug),
@@ -78,9 +78,8 @@ func (s *UrlService) GetUrlsInDb(userID uint, cfg *config.Config) []models.ListU
 	return responses
 }
 
-func (s *UrlService) GetUrlInDb(id string, cfg *config.Config) string {
-	urlRepo := repository.NewURLRepository(s.db)
-	url, _ := urlRepo.GetBySlug(id)
+func (s *URLs) GetUrlInDb(id string, cfg *config.Config) string {
+	url, _ := s.urlRepository.GetBySlug(id)
 	return url.Url
 }
 func GenerateUUID() string {
@@ -105,9 +104,8 @@ func generateRandomString() string {
 	return sb.String()
 }
 
-func (s *UrlService) SaveUrlInDb(url string, cfg *config.Config, userId uint) (string, error) {
+func (s *URLs) SaveUrlInDb(url string, cfg *config.Config, userId uint) (string, error) {
 
-	urlRepo := repository.NewURLRepository(s.db)
 	id := generateRandomString()
 	newURL := &db.URL{
 		Slug: id,
@@ -115,7 +113,7 @@ func (s *UrlService) SaveUrlInDb(url string, cfg *config.Config, userId uint) (s
 		UserID:  userId,
 	}
 
-	createdURL, err := urlRepo.CreateIfNotExists(newURL)
+	createdURL, err := s.urlRepository.CreateIfNotExists(newURL)
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			return createdURL.Slug, err
@@ -127,7 +125,7 @@ func (s *UrlService) SaveUrlInDb(url string, cfg *config.Config, userId uint) (s
 }
 
 
-func (s *UrlService) SaveBatchURLS(urls []models.CreateURLSRequest, cfg *config.Config) ([]models.CreateURLSResponse, error) {
+func (s *URLs) SaveBatchURLS(urls []models.CreateURLSRequest, cfg *config.Config) ([]models.CreateURLSResponse, error) {
 	gormUrls := make([]db.URL, 0, len(urls))
 	var responses []models.CreateURLSResponse
 	for _, url := range urls {
@@ -136,8 +134,7 @@ func (s *UrlService) SaveBatchURLS(urls []models.CreateURLSRequest, cfg *config.
 			Url:     url.OriginalURL,
 		})
 	}
-	urlRepo := repository.NewURLRepository(s.db)
-	err := urlRepo.BatchCreate(gormUrls)
+	err := s.urlRepository.BatchCreate(gormUrls)
 	if err != nil {
 		return nil, err
 	}

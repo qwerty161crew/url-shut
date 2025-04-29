@@ -31,7 +31,9 @@ func GetFileStoragePath(cfg *config.Config) string {
 func main() {
 	cfg, err := config.LoadConfig()
 	dbConnect, err := gorm.Open(postgres.Open(cfg.Postgres.GenerateDBurl()), &gorm.Config{})
-	urlService := service.GetUrlService(*dbConnect)
+	userRepository := repository.NewUserRepository(dbConnect)
+	urlRepository := repository.NewURLRepository(dbConnect)
+	urlService := service.GetUrlService(userRepository, urlRepository)
 	if err != nil {
 		log.Error().Msg("failed to open connect db")
 		return 

@@ -38,18 +38,18 @@ func isValidURL(urlString string) bool {
 	return true
 }
 
-type URLHandler struct {
+type URLs struct {
 	config *config.Config
-	service *service.UrlService
+	service *service.URLs
 }
 
-func NewURLHandler(cfg *config.Config,  urlService *service.UrlService) *URLHandler {
-	return &URLHandler{
+func NewURLHandler(cfg *config.Config,  urlService *service.URLs) *URLs {
+	return &URLs{
 		config: cfg,
 		service: urlService,
 	}
 }
-func (h *URLHandler) ShutUrlJsonHandler(c echo.Context) error {
+func (h *URLs) ShutUrlJsonHandler(c echo.Context) error {
 	if c.Request().Method != http.MethodPost {
 		return c.String(http.StatusMethodNotAllowed, "Only POST requests are allowed!")
 	}
@@ -75,7 +75,7 @@ func (h *URLHandler) ShutUrlJsonHandler(c echo.Context) error {
 	link := fmt.Sprintf("%s://%s/%s", c.Scheme(), c.Request().Host, id)
 	return c.JSON(http.StatusCreated, models.ResponseCreateUrl{Result: link})
 }
-func (h *URLHandler) ShutUrlHandler(c echo.Context) error {
+func (h *URLs) ShutUrlHandler(c echo.Context) error {
 	if c.Request().Method != http.MethodPost {
 		return c.String(http.StatusMethodNotAllowed, "Only POST requests are allowed!")
 	}
@@ -98,7 +98,7 @@ func (h *URLHandler) ShutUrlHandler(c echo.Context) error {
 	return c.String(http.StatusCreated, link)
 }
 
-func (h *URLHandler) RedirectHandler(c echo.Context) error {
+func (h *URLs) RedirectHandler(c echo.Context) error {
 	originalURL := h.service.GetUrlInDb(c.Param("id"), h.config)
 	originalURL = strings.TrimSpace(originalURL)
 	originalURL = strings.Trim(originalURL, `"`)
@@ -109,7 +109,7 @@ func (h *URLHandler) RedirectHandler(c echo.Context) error {
 	return c.Redirect(http.StatusMovedPermanently, originalURL)
 }
 
-func (h *URLHandler) BatchURLHandler(c echo.Context) error {
+func (h *URLs) BatchURLHandler(c echo.Context) error {
 	var requests []models.CreateURLSRequest
 	if err := c.Bind(&requests); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
@@ -120,7 +120,7 @@ func (h *URLHandler) BatchURLHandler(c echo.Context) error {
 	}
 	return c.JSON(http.StatusBadRequest, response)
 }
-func (h *URLHandler) RegistrationHandler(c echo.Context) error {
+func (h *URLs) RegistrationHandler(c echo.Context) error {
 	var request models.RegistrationRequest
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
@@ -146,7 +146,7 @@ func (h *URLHandler) RegistrationHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "registration was successful"})
 }
 
-func (h *URLHandler) GetUserUrls(c echo.Context) error {
+func (h *URLs) GetUserUrls(c echo.Context) error {
 	userID, ok := c.Get("userID").(uint)
 	if !ok {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "user ID not found in context"})
